@@ -25,7 +25,7 @@ def main():
     elif sysPlatform == "win32":
         driverPath += ".exe"
 
-    if os.path.exists(driverPath):
+    if not os.path.exists(driverPath):
         return False
 
     sys.path.append(binPath)
