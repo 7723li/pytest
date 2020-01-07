@@ -16,13 +16,6 @@ logging.info("\n")
 logging.info("platform : " + sys_platform)
 
 '''
-手动将所有firefox进程删除 避免长时间积累导致服务器负载过重
-'''
-def kill_all_firefox_progress():
-    # TODO lzx
-    return
-
-'''
 从每个专利的专属链接提取数据
 '''
 def get_data_from_url(browser_driver, url):
@@ -204,4 +197,5 @@ def main():
 if __name__ == "__main__":
     main()
     if sys_platform == "linux":
-        kill_all_firefox_progress()
+        killff = os.popen("kill -9 $(pidof firefox)").read()
+        logging.debug("kill firefox " + killff)
