@@ -5,7 +5,7 @@ import sys, os, logging, time, random
 
 # 日志输出
 logging.basicConfig(filename='baiten.log', 
-                    filemode="a+", 
+                    filemode="w", 
                     format="%(asctime)s %(name)s:%(levelname)s:%(message)s", 
                     datefmt="%d-%M-%Y %H:%M:%S", 
                     level=logging.DEBUG)
@@ -20,7 +20,7 @@ logging.info("platform : " + sys_platform)
 '''
 def get_data_from_url(browser_driver, url):
     browser_driver.get(url)
-    time.sleep(random.randrange(0,3))
+    time.sleep(random.randrange(1,5))
 
     # 打表 字段对应数据
     main_matter_label2data = dict()
@@ -29,7 +29,7 @@ def get_data_from_url(browser_driver, url):
     main_matter_label2data["公开号"] = str()
     main_matter_label2data["授权公告日"] = str()
     main_matter_label2data["申请（专利权）人"] = str()
-    main_matter_label2data["发明人"] = list()    
+    main_matter_label2data["发明人"] = str()    
 
     # 主要事项 及其 描述字段
     main_matters_labels_xpath = browser_driver.find_elements_by_xpath('//ul[@class="abst-info fn-clear"]/li')
@@ -38,21 +38,19 @@ def get_data_from_url(browser_driver, url):
         label_key = key_value[0]
         if main_matter_label2data.get(label_key) == None:
             continue
-
-        value = key_value[1]
-        if label_key != "发明人":
-            main_matter_label2data[label_key] = value
-        else:
-            main_matter_label2data[label_key].extend(value.split(';'))
+        
+        main_matter_label2data[label_key] = key_value[1]
     
     patentType_pantentName_xpath = browser_driver.find_element_by_xpath('//span[@class="title Js_hl"]')
     patentType_pantentName = patentType_pantentName_xpath.text.strip().split(" ")
 
     main_matter_label2data["专利类型"] = patentType_pantentName[0].replace('[', '').replace(']', '')
     main_matter_label2data["专利名"] = patentType_pantentName[-1]
-    main_matter_label2data["法律状态"] = browser_driver.find_element_by_xpath('//div[@class="law-status law-status2"]/p[@class="law-active"]').text
+    main_matter_label2data["法律状态"] = browser_driver.find_element_by_xpath('//div[@class="law-status law-status2"]/p').text
 
-    print(main_matter_label2data)
+    print(url)
+    with open("debug.txt", "ab+") as debugtxt:
+        debugtxt.write((str(main_matter_label2data) + "\n").encode("utf-8"))
 
 '''
 获取每个专利的专属链接
@@ -62,7 +60,7 @@ def get_child_urls(browser_driver, go_url):
 
     logging.info("processing url %s", go_url)
     browser_driver.get(go_url)
-    time.sleep(random.randrange(0,3))   # 获取完稍作停顿
+    time.sleep(random.randrange(1,5))   # 稍作停顿
 
     public_id_list = browser_driver.find_elements_by_xpath('//a[contains(@title, "公开号") and @class="c-blue"]')
     for public_id in public_id_list:
