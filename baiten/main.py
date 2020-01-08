@@ -20,33 +20,74 @@ logging.info("platform : " + sys_platform)
 # 针对佰腾应用的数据库
 baidten_db = database.baidten_db(sys_platform)
 
+# linux服务器环境下没有显示环境 需要特别配置
+display = None
+if sys_platform == "linux":
+    try:
+        from pyvirtualdisplay import Display
+    except:
+        # 安装 pyvirtualdisplay
+        logging.info("install pyvirtualdisplay begin")
+        logging.info(os.popen("pip3 install pyvirtualdisplay").read())
+        logging.info("install pyvirtualdisplay finish")
+
+        # 安装 xvfb
+        logging.info("install xvfb begin")
+        logging.info(os.popen("sudo apt-get install xvfb").read())
+        logging.info("install xvfb finish")
+
+    display = Display(visible=False, size=(900, 800))
+    display.start()
+
+'''
+退出进程
+'''
+def exit_all(browser_driver, exit_code = 0, log_data = ""):
+    if log_data != "":
+        logging.debug("be baned: xpath is " + log_data)
+
+    browser_driver.close()
+    if None != display:
+        display.stop()
+    
+    os._exit(exit_code)
+    kill_process("firefox")
+
 '''
 shit fucking happends
 有时候页面未加载完 会造成xpath取节点时崩溃
 '''
 def avoid_being_fuck_by_selenium_xpath(browser_driver, xpath_code):
-    max_retry_times = 30
-    load_sunccess = False
+    max_retry_times = 0
     res = list()
 
     # 预防页面未完成加载 最多重试30次 即1分钟
-    while max_retry_times > 0 and False == load_sunccess:
+    # 并且预防被网页限制访问 
+    while max_retry_times < 30:
         try:
             res = browser_driver.find_elements_by_xpath(xpath_code)
-            if len(res) <= 0:
+            if len(res) > 0:
+                break
+            else:                               # 没有找到对应字段
+                try:                            # 被ban了
+                    browser_driver.find_element_by_xpath('//div[@class="payValidate"]')
+                    exit_all(browser_driver, -1, "be baned: xpath is " + xpath_code)
+                except:                         # 只是纯粹网络慢 网页未完成加载 刷新一下等十秒
+                    browser_driver.refresh()
+                    time.sleep(10)
+                    max_retry_times += 1
+        except NoSuchElementException:          # 网络出现问题导致无法访问网站 或者 网页改版了
+            try:                                # 希望只是被ban 不然问题更大
+                browser_driver.find_element_by_xpath('//div[@class="payValidate"]')
+                exit_all(browser_driver, -1, "be baned with NoSuchElementException: xpath is " + xpath_code)
+            except:                             # 同样只是因为网速过于狗屎 刷新一下
                 browser_driver.refresh()
                 time.sleep(10)
-            else:
-                load_sunccess = True
-        except NoSuchElementException:
-            time.sleep(2)
-            max_retry_times -= 1
+                max_retry_times += 1
 
-    # 出事了
-    if len(res) <= 0:
-        logging.debug("fuck by selenium, xpath is " + xpath_code)
+    if len(res) <= 0:                           # 理论上只有 网速持续保持1.14514kb/s 才会跑进这里
+        exit_all(browser_driver, -1, "fuck by fucking network, xpath is " + xpath_code)
 
-    assert(len(res) > 0)
     return res
 
 '''
@@ -69,20 +110,9 @@ def kill_process(prog_name):
 从每个专利的专属链接中提取数据
 '''
 def get_data_from_url(browser_driver, url):
-    get_url_success = False
-    retry_times = 0
-    while not get_url_success and retry_times < 5:
-        try:
-            browser_driver.get(url)
-            browser_driver.refresh()
-            time.sleep(2)
-            get_url_success = True
-        except NoSuchElementException:
-            try:
-                is_banded_xpath = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="payValidate"]')[0]
-                logging.debug("be baned : " + is_banded_xpath.text)
-            except:
-                retry_times += 1
+    browser_driver.get(url)
+    browser_driver.refresh()
+    time.sleep(2)
 
     # 打表 字段对应数据
     main_matter_label2data = dict()
@@ -121,14 +151,13 @@ def get_data_from_url(browser_driver, url):
 获取每个专利的专属链接
 '''
 def get_child_urls(browser_driver, go_url):
-    child_urls = []
-
     logging.info("processing url %s", go_url)
     
     browser_driver.get(go_url)
     browser_driver.refresh()
     time.sleep(2)
 
+    child_urls = []
     public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="fn-left g-right newList-item"]/a')
     for idx in range(0, len(public_id_list), 2):
         child_urls.append(public_id_list[idx].get_attribute("href"))
@@ -175,30 +204,8 @@ def get_child_url_set(browser_driver):
 获取浏览器应用
 '''
 def get_driver(driver_path):
-    display = None
-    if sys_platform == "linux":
-        # linux服务器环境下没有显示部件 需要特别配置
-        try:
-            from pyvirtualdisplay import Display
-        except:
-            # 安装 pyvirtualdisplay
-            logging.info("install pyvirtualdisplay begin")
-            logging.info(os.popen("pip3 install pyvirtualdisplay").read())
-            logging.info("install pyvirtualdisplay finish")
-
-            # 安装 xvfb
-            logging.info("install xvfb begin")
-            logging.info(os.popen("sudo apt-get install xvfb").read())
-            logging.info("install xvfb finish")
-
-        display = Display(visible=False, size=(900, 800))
-        display.start()
-
     # 尝试启动firefox浏览器
-    try:
-        browser_driver = webdriver.Firefox(executable_path= driver_path)
-    except:
-        browser_driver = None
+    browser_driver = webdriver.Firefox(executable_path= driver_path)
 
     return browser_driver
 
@@ -255,13 +262,9 @@ def main():
         assert(type(url) is str)
         get_data_from_url(browser_driver, url)
 
-    browser_driver.close()
-
-    return True
+    # 正常退出
+    exit_all(browser_driver, 0, "finished..")
 
 if __name__ == "__main__":
     kill_process("firefox")
-
     main()
-
-    kill_process("firefox")
