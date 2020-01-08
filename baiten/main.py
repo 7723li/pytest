@@ -30,10 +30,14 @@ def avoid_being_fuck_by_selenium_xpath(browser_driver, xpath_code):
     res = list()
 
     # 预防页面未完成加载 最多重试30次 即1分钟
-    while max_retry_times > 0 and False == load_sunccess  and len(res) <= 0:
+    while max_retry_times > 0 and False == load_sunccess:
         try:
             res = browser_driver.find_elements_by_xpath(xpath_code)
-            load_sunccess = True
+            if len(res) <= 0:
+                browser_driver.refresh()
+                time.sleep(10)
+            else:
+                load_sunccess = True
         except NoSuchElementException:
             time.sleep(2)
             max_retry_times -= 1
@@ -71,6 +75,7 @@ def get_data_from_url(browser_driver, url):
         try:
             browser_driver.get(url)
             browser_driver.refresh()
+            time.sleep(2)
             get_url_success = True
         except NoSuchElementException:
             try:
