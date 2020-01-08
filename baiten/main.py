@@ -18,7 +18,7 @@ logging.info("\n")
 logging.info("platform : " + sys_platform)
 
 # 针对佰腾应用的数据库
-baidten_db = database.baidten_db()
+baidten_db = database.baidten_db(sys_platform)
 
 '''
 shit fucking happends
@@ -94,7 +94,7 @@ def get_data_from_url(browser_driver, url):
         
         main_matter_label2data[label_key] = key_value[1]
     
-    patentType_pantentName_xpath = avoid_being_fuck_by_selenium_xpath(browser_driver, '@class="title Js_hl"')[0]
+    patentType_pantentName_xpath = avoid_being_fuck_by_selenium_xpath(browser_driver, '//span[@class="title Js_hl"]')[0]
     patentType_pantentName = patentType_pantentName_xpath.text.strip().split(" ")
 
     main_matter_label2data["专利类型"] = patentType_pantentName[0].replace('[', '').replace(']', '')
@@ -106,7 +106,7 @@ def get_data_from_url(browser_driver, url):
         with open("debug.txt", "wb") as debug_file:
             debug_file.write(str(main_matter_label2data).encode("utf-8"))
 
-    baidten_db.insert_one(main_matter_label2data)
+    baidten_db.insert_one(int(time.time()), main_matter_label2data)
 
 '''
 获取每个专利的专属链接
@@ -123,7 +123,7 @@ def get_child_urls(browser_driver, go_url):
 
     time.sleep(random.randrange(1,5))   # 稍作停顿
 
-    public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//a[(@title="公开号"]')
+    public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//a[@title="公开号"]')
     for public_id in public_id_list:
         child_urls.append(public_id.get_attribute("href"))
     
