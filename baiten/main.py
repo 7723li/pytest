@@ -38,7 +38,7 @@ def avoid_being_fuck_by_selenium_xpath(browser_driver, xpath_code):
             max_retry_times -= 1
 
     if len(res) <= 0:
-        logging.debug("fuck by selenium")
+        logging.debug("fuck by selenium, xpath is " + xpath_code)
 
     assert(len(res) > 0)
     return res
@@ -102,6 +102,10 @@ def get_data_from_url(browser_driver, url):
     main_matter_label2data["法律状态"]  = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="law-status law-status2"]/p')[0].text
 
     print(url)
+    if sys_platform == "win32":
+        with open("debug.txt", "wb") as debug_file:
+            debug_file.write(str(main_matter_label2data).encode("utf-8"))
+
     baidten_db.insert_one(main_matter_label2data)
 
 '''
@@ -111,13 +115,15 @@ def get_child_urls(browser_driver, go_url):
     child_urls = []
 
     logging.info("processing url %s", go_url)
-    for i in range(3):
+    retry_times = 3
+    while retry_times > 0:
         browser_driver.get(go_url)
         time.sleep(1)
+        retry_times -= 1        
 
     time.sleep(random.randrange(1,5))   # 稍作停顿
 
-    public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//a[contains(@title, "公开号") and @class="c-blue"]')
+    public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//a[(@title="公开号"]')
     for public_id in public_id_list:
         child_urls.append(public_id.get_attribute("href"))
     
