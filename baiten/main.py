@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 from urllib import parse
-import sys, os, logging, time, random, datetime
+import sys, os, logging, time, datetime
 import database
 
 # 日志输出
@@ -25,24 +25,29 @@ shit fucking happends
 有时候页面未加载完 会造成xpath取节点时崩溃
 '''
 def avoid_being_fuck_by_selenium_xpath(browser_driver, xpath_code):
-    max_retry_times = 20
+    max_retry_times = 30
     load_sunccess = False
     res = list()
 
+    # 预防页面未完成加载 最多重试30次 即1分钟
     while max_retry_times > 0 and False == load_sunccess  and len(res) <= 0:
         try:
             res = browser_driver.find_elements_by_xpath(xpath_code)
             load_sunccess = True
         except NoSuchElementException:
-            time.sleep(1)
+            time.sleep(2)
             max_retry_times -= 1
 
+    # 出事了
     if len(res) <= 0:
         logging.debug("fuck by selenium, xpath is " + xpath_code)
 
     assert(len(res) > 0)
     return res
 
+'''
+清理进程
+'''
 def kill_process(prog_name):
     cmd = "ps -ef | grep \"" + prog_name + "\" | grep -v grep | awk '{print $2}'"
     find_res = os.popen(cmd).read().split('\n')
@@ -57,7 +62,7 @@ def kill_process(prog_name):
     logging.info("kill %d %s", kill, prog_name)
 
 '''
-从每个专利的专属链接提取数据
+从每个专利的专属链接中提取数据
 '''
 def get_data_from_url(browser_driver, url):
     get_url_success = False
@@ -65,6 +70,7 @@ def get_data_from_url(browser_driver, url):
     while not get_url_success and retry_times < 5:
         try:
             browser_driver.get(url)
+            browser_driver.refresh()
             get_url_success = True
         except NoSuchElementException:
             try:
@@ -72,8 +78,6 @@ def get_data_from_url(browser_driver, url):
                 logging.debug("be baned : " + is_banded_xpath.text)
             except:
                 retry_times += 1
-
-    time.sleep(random.randrange(1,5))
 
     # 打表 字段对应数据
     main_matter_label2data = dict()
@@ -84,7 +88,7 @@ def get_data_from_url(browser_driver, url):
     main_matter_label2data["申请（专利权）人"] = str()
     main_matter_label2data["发明人"] = str()    
 
-    # 主要事项 及其 描述字段
+    # 主要事项的 描述字段 及 对应数据
     main_matters_labels_xpath = avoid_being_fuck_by_selenium_xpath(browser_driver, '//ul[@class="abst-info fn-clear"]/li')
     for i in range(len(main_matters_labels_xpath)):
         key_value = main_matters_labels_xpath[i].text.split('\n')
@@ -101,10 +105,11 @@ def get_data_from_url(browser_driver, url):
     main_matter_label2data["专利名"] = patentType_pantentName[-1]
     main_matter_label2data["法律状态"]  = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="law-status law-status2"]/p')[0].text
 
-    print(url)
+    # debug txt
     with open("debug.txt", "wb") as debug_file:
-        debug_file.write(str(main_matter_label2data).encode("utf-8"))
+        debug_file.write((str(main_matter_label2data) + "\n").encode("utf-8"))
 
+    # 单独写入一个数据
     baidten_db.insert_one(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), main_matter_label2data)
 
 '''
@@ -114,38 +119,35 @@ def get_child_urls(browser_driver, go_url):
     child_urls = []
 
     logging.info("processing url %s", go_url)
-    retry_times = 10
-    while browser_driver.current_url != go_url and retry_times > 0:
-        browser_driver.get(go_url)
-        time.sleep(2)
-        retry_times -= 1        
+    
+    browser_driver.get(go_url)
+    browser_driver.refresh()
+    time.sleep(2)
 
-    time.sleep(random.randrange(1,5))   # 稍作停顿
-
-    public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//a[@title="公开号"]')
-    for public_id in public_id_list:
-        child_urls.append(public_id.get_attribute("href"))
+    public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="fn-left g-right newList-item"]/a')
+    for idx in range(0, len(public_id_list), 2):
+        child_urls.append(public_id_list[idx].get_attribute("href"))
     
     return child_urls
 
 '''
-启动浏览器
+返回专利链接集合
 '''
-def start_browser(browser_driver):
+def get_child_url_set(browser_driver):
     # 搜索关键字
     key_word = str("广州医软智能科技有限公司")
     key_word_urlencode_1 = parse.quote(key_word.encode("utf-8"))
     key_word_urlencode_2 = parse.quote(key_word_urlencode_1.encode("utf-8"))    # 两次转码
 
     # 单页搜索数据量 10个
-    single_page_obj_num = 10
+    default_single_page_obj_num = 10
     origin_url = "https://www.baiten.cn/results/s/" + key_word_urlencode_2 + "/.html?type=s#/"  
 
     # 所有专利的单独链接
     child_url_set = []
 
     # go to collect from page 1
-    child_urls = get_child_urls(browser_driver, origin_url + str(single_page_obj_num) + "/" + str(1))
+    child_urls = get_child_urls(browser_driver, origin_url + str(default_single_page_obj_num) + "/" + str(1))
     child_url_set.extend(child_urls)
 
     # 总共含有的页数
@@ -154,23 +156,18 @@ def start_browser(browser_driver):
     logging.info("totally contains %d pages", all_page_num)
 
     # go to collect from page 2 until end
-    for page in (2, all_page_num + 1):
-        child_urls = get_child_urls(browser_driver, origin_url + str(single_page_obj_num) + "/" + str(page))
+    for page in range(2, all_page_num + 1):
+        child_urls = get_child_urls(browser_driver, origin_url + str(default_single_page_obj_num) + "/" + str(page))
         child_url_set.extend(child_urls)
 
     # 总共有 xx 个专利
     logging.info("totally contains %d objects", len(child_url_set))
 
-    # 从这些链接里提取数据
-    for url in child_url_set:
-        assert(type(url) is str)
-        get_data_from_url(browser_driver, url)
-
-    browser_driver.close()
+    return child_url_set
 
 '''
 启动函数
-返回浏览器应用
+获取浏览器应用
 '''
 def get_driver(driver_path):
     display = None
@@ -196,7 +193,7 @@ def get_driver(driver_path):
     try:
         browser_driver = webdriver.Firefox(executable_path= driver_path)
     except:
-        return None
+        browser_driver = None
 
     return browser_driver
 
@@ -239,16 +236,21 @@ def main():
 
     logging.info("firefox_path : " + firefox_path)
     logging.info("driver_path : " + driver_path)
-
-    random.seed(time.time())
     
     # 获取浏览器驱动
     browser_driver = get_driver(driver_path)
     if browser_driver is None:
         return False
 
-    # 开启浏览器
-    start_browser(browser_driver)
+    # 返回专利链接集合
+    child_url_set = get_child_url_set(browser_driver)
+
+    # 从这些链接里提取数据
+    for url in child_url_set:
+        assert(type(url) is str)
+        get_data_from_url(browser_driver, url)
+
+    browser_driver.close()
 
     return True
 

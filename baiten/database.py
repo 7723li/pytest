@@ -42,10 +42,11 @@ class baidten_db:
         create_table_sql += "invent_member varchar(512),"                      # 发明人
         create_table_sql += "patent_type varchar(16),"                         # 专利类型
         create_table_sql += "patent_name varchar(64),"                         # 专利名称
-        create_table_sql += "law_status varchar(32)"                           # 法律状态
+        create_table_sql += "law_status varchar(32),"                          # 法律状态
+        create_table_sql += "enable tinyint(1) NOT NULL DEFAULT 0,"            # 确认状态
+        create_table_sql += "affirm_time DATETIME DEFAULT NULL"                # 确认时间
         create_table_sql += ") character set utf8;"
         self.cursor.execute(create_table_sql)
-
 
     def insert_one(self, datetime, src_data):
         assert(type(src_data) is dict)
@@ -61,3 +62,9 @@ class baidten_db:
         data.insert(0, datetime)
         self.cursor.execute(insert_sql, data)
         self.connection.commit()        # 数据库事务
+
+    def get_all(self):
+        self.cursor.execute("select * from medsoft_baiten_db;")
+        all = self.cursor.fetchall()
+        return all
+        
