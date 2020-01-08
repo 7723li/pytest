@@ -2,7 +2,7 @@ from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
 from selenium.common.exceptions import NoSuchElementException
 from urllib import parse
-import sys, os, logging, time, random
+import sys, os, logging, time, random, datetime
 import database
 
 # 日志输出
@@ -102,11 +102,10 @@ def get_data_from_url(browser_driver, url):
     main_matter_label2data["法律状态"]  = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="law-status law-status2"]/p')[0].text
 
     print(url)
-    if sys_platform == "win32":
-        with open("debug.txt", "wb") as debug_file:
-            debug_file.write(str(main_matter_label2data).encode("utf-8"))
+    with open("debug.txt", "wb") as debug_file:
+        debug_file.write(str(main_matter_label2data).encode("utf-8"))
 
-    baidten_db.insert_one(int(time.time()), main_matter_label2data)
+    baidten_db.insert_one(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), main_matter_label2data)
 
 '''
 获取每个专利的专属链接
@@ -115,10 +114,10 @@ def get_child_urls(browser_driver, go_url):
     child_urls = []
 
     logging.info("processing url %s", go_url)
-    retry_times = 3
-    while retry_times > 0:
+    retry_times = 10
+    while browser_driver.current_url != go_url and retry_times > 0:
         browser_driver.get(go_url)
-        time.sleep(1)
+        time.sleep(2)
         retry_times -= 1        
 
     time.sleep(random.randrange(1,5))   # 稍作停顿

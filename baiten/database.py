@@ -45,7 +45,7 @@ class baidten_db:
 
         create_table_sql =  "create table if not exists medsoft_baiten_db ("   # 不存在才创建
         create_table_sql += "`id` INT UNSIGNED AUTO_INCREMENT primary key,"    # 主键
-        create_table_sql += "check_timestamp INT(10),"                         # 插入数据的查询时间戳
+        create_table_sql += "check_datetime DATETIME,"                         # 插入数据的查询时间戳
         create_table_sql += "apply_num varchar(32),"                           # 申请号
         create_table_sql += "apply_date varchar(8),"                           # 申请日
         create_table_sql += "public_num varchar(32),"                          # 公开号
@@ -59,17 +59,17 @@ class baidten_db:
         self.cursor.execute(create_table_sql)
 
 
-    def insert_one(self, timestamp, src_data):
+    def insert_one(self, datetime, src_data):
         assert(type(src_data) is dict)
 
         data = list(src_data.values())
         assert(len(data) == 9)
 
         insert_sql = "insert into medsoft_baiten_db \
-        (check_timestamp, apply_num, apply_date, public_num, public_date, aplly_member, invent_member, patent_type, patent_name, law_status) \
+        (check_datetime, apply_num, apply_date, public_num, public_date, aplly_member, invent_member, patent_type, patent_name, law_status) \
         values  \
-        (%d, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
+        (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);"
 
-        data.insert(0, timestamp)
+        data.insert(0, datetime)
         self.cursor.execute(insert_sql, data)
         self.connection.commit()        # 数据库事务
