@@ -27,9 +27,9 @@ shit fucking happends
 def avoid_being_fuck_by_selenium_xpath(browser_driver, xpath_code):
     max_retry_times = 20
     load_sunccess = False
-    res = None
+    res = list()
 
-    while False == load_sunccess and max_retry_times > 0:
+    while max_retry_times > 0 and False == load_sunccess  and len(res) <= 0:
         try:
             res = browser_driver.find_elements_by_xpath(xpath_code)
             load_sunccess = True
@@ -37,10 +37,10 @@ def avoid_being_fuck_by_selenium_xpath(browser_driver, xpath_code):
             time.sleep(1)
             max_retry_times -= 1
 
-    if res is None:
+    if len(res) <= 0:
         logging.debug("fuck by selenium")
 
-    assert(res is not None)
+    assert(len(res) > 0)
     return res
 
 def kill_process(prog_name):
