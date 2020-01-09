@@ -1,6 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import WebDriverException
 from urllib import parse
 import sys, os, logging, time, datetime
 import database
@@ -33,7 +33,7 @@ if sys_platform == "linux":
 
         # 安装 xvfb
         logging.info("install xvfb begin")
-        logging.info(os.popen("sudo apt-get install xvfb").read())
+        logging.info(os.popen("apt-get install xvfb").read())
         logging.info("install xvfb finish")
 
     display = Display(visible=False, size=(900, 800))
@@ -168,8 +168,17 @@ def get_xpath_set(browser_driver):
 获取浏览器应用
 '''
 def get_driver(driver_path):
+    browser_driver = None
+
     # 尝试启动firefox浏览器
-    browser_driver = webdriver.Firefox(executable_path=driver_path)
+    try:
+        browser_driver = webdriver.Firefox(executable_path=driver_path)
+    except WebDriverException as webdriver_exception:
+        msg = str(webdriver_exception)
+        if "can't kill an exited process" in msg:
+            if sys_platform == "linux":     # 重装firefox
+                os.popen("apt-get remove firefox").read()
+                os.popen("apt-get install firefox").read()
 
     return browser_driver
 
@@ -193,18 +202,19 @@ def main():
         driver_path = ""
 
     # 驱动不存在
-    if "" == driver_path or not os.path.exists(driver_path):
+    if os.path.exists(driver_path) == False:
         exit_all(None, -1, "did not find firefox-Driver geckodriver")
 
     # 浏览器不存在
-    if "" == firefox_path or not os.path.exists(driver_path):
+    if os.path.exists(firefox_path) == False:
         logging.error("did not find firefox-Browser")
 
         # 林努克丝  环境可以自动安装
         # 温斗士    环境下只能手动安装
         if sys_platform == "linux":
+            print("prepare to install firefox")
             logging.info("install firefox begin")
-            logging.info((os.popen("sudo apt-get install firefox").read()))
+            logging.info((os.popen("apt-get install firefox").read()))
             logging.info("install firefox finish")
         else:
             exit_all(None, -1, "download firefox manully")
