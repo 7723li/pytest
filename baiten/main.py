@@ -39,56 +39,7 @@ if sys_platform == "linux":
     display = Display(visible=False, size=(900, 800))
     display.start()
 
-'''
-退出进程
-'''
-def exit_all(browser_driver, exit_code = 0, log_data = ""):
-    if log_data != "":
-        logging.debug("be baned: xpath is " + log_data)
-
-    browser_driver.close()
-    if None != display:
-        display.stop()
-    
-    os._exit(exit_code)
-    kill_process("firefox")
-
-'''
-shit fucking happends
-有时候页面未加载完 会造成xpath取节点时崩溃
-'''
-def avoid_being_fuck_by_selenium_xpath(browser_driver, xpath_code):
-    max_retry_times = 0
-    res = list()
-
-    # 预防页面未完成加载 最多重试30次 即1分钟
-    # 并且预防被网页限制访问 
-    while max_retry_times < 30:
-        try:
-            res = browser_driver.find_elements_by_xpath(xpath_code)
-            if len(res) > 0:
-                break
-            else:                               # 没有找到对应字段
-                try:                            # 被ban了
-                    browser_driver.find_element_by_xpath('//div[@class="payValidate"]')
-                    exit_all(browser_driver, -1, "be baned: xpath is " + xpath_code)
-                except:                         # 只是纯粹网络慢 网页未完成加载 刷新一下等十秒
-                    browser_driver.refresh()
-                    time.sleep(10)
-                    max_retry_times += 1
-        except NoSuchElementException:          # 网络出现问题导致无法访问网站 或者 网页改版了
-            try:                                # 希望只是被ban 不然问题更大
-                browser_driver.find_element_by_xpath('//div[@class="payValidate"]')
-                exit_all(browser_driver, -1, "be baned with NoSuchElementException: xpath is " + xpath_code)
-            except:                             # 同样只是因为网速过于狗屎 刷新一下
-                browser_driver.refresh()
-                time.sleep(10)
-                max_retry_times += 1
-
-    if len(res) <= 0:                           # 理论上只有 网速持续保持1.14514kb/s 才会跑进这里
-        exit_all(browser_driver, -1, "fuck by fucking network, xpath is " + xpath_code)
-
-    return res
+company_name = "广州医软智能科技有限公司"
 
 '''
 清理进程
@@ -107,97 +58,110 @@ def kill_process(prog_name):
     logging.info("kill %d %s", kill, prog_name)
 
 '''
+退出进程
+'''
+def exit_all(browser_driver, exit_code = 0, log_data = ""):
+    if log_data != "":
+        logging.debug("be baned: xpath is " + log_data)
+    if None != browser_driver:
+        browser_driver.close()
+    if None != display:
+        display.stop()
+    
+    os._exit(exit_code)
+    kill_process("firefox")
+
+'''
 从每个专利的专属链接中提取数据
 '''
-def get_data_from_url(browser_driver, url):
-    browser_driver.get(url)
-    browser_driver.refresh()
-    time.sleep(2)
+def get_data_from_xpath_set(total_obj_num, xpath_set):
+    obj_labels = int(len(xpath_set) / total_obj_num) # 一个专利包括的字段
+    for i in range(0, len(xpath_set), obj_labels):
+        apply_number = xpath_set[i + 2].text
+        patent_type = xpath_set[i + 3].text
+        patent_name = xpath_set[i + 4].text
+        public_number = xpath_set[i + 5].text
+        public_date = xpath_set[i + 6].text
+        apply_date = xpath_set[i + 7].text
+        apply_member = company_name # 8
 
-    # 打表 字段对应数据
-    main_matter_label2data = dict()
-    main_matter_label2data["申请号"] = str()
-    main_matter_label2data["申请日"] = str()
-    main_matter_label2data["公开号"] = str()
-    main_matter_label2data["授权公告日"] = str()
-    main_matter_label2data["申请（专利权）人"] = str()
-    main_matter_label2data["发明人"] = str()    
+        try:
+            moreNum_span_list = xpath_set[i + 9].find_elements_by_tag_name('span')
+            for moreNum_span in moreNum_span_list:
+                if '+' in moreNum_span.text:
+                    moreNum_span.click()
+                    break
+        except:
+            pass
+        invent_member = ";".join([xpath.text.replace('·', '') for xpath in xpath_set[i + 9].find_elements_by_tag_name('a')])
 
-    # 主要事项的 描述字段 及 对应数据
-    main_matters_labels_xpath = avoid_being_fuck_by_selenium_xpath(browser_driver, '//ul[@class="abst-info fn-clear"]/li')
-    for i in range(len(main_matters_labels_xpath)):
-        key_value = main_matters_labels_xpath[i].text.split('\n')
-        label_key = key_value[0]
-        if main_matter_label2data.get(label_key) == None:
-            continue
+        law_status = xpath_set[i + 10].text
         
-        main_matter_label2data[label_key] = key_value[1]
-    
-    patentType_pantentName_xpath = avoid_being_fuck_by_selenium_xpath(browser_driver, '//span[@class="title Js_hl"]')[0]
-    patentType_pantentName = patentType_pantentName_xpath.text.strip().split(" ")
+        date_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data = [date_time, apply_number, apply_date, public_number, public_date, apply_member, invent_member, patent_type, patent_name, law_status]
 
-    main_matter_label2data["专利类型"] = patentType_pantentName[0].replace('[', '').replace(']', '')
-    main_matter_label2data["专利名"] = patentType_pantentName[-1]
-    main_matter_label2data["法律状态"]  = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="law-status law-status2"]/p')[0].text
-
-    # debug txt
-    with open("debug.txt", "wb") as debug_file:
-        debug_file.write((str(main_matter_label2data) + "\n").encode("utf-8"))
-
-    # 单独写入一个数据
-    baidten_db.insert_one(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), main_matter_label2data)
+        # debug txt
+        with open("debug.txt", "ab+") as debug_file:
+            debug_file.write((str(data) + "\n").encode("utf-8"))
+            
+        # 单独写入一个数据
+        baidten_db.insert_one_by_list(data)
 
 '''
-获取每个专利的专属链接
+避免网络太差造成异常退出
 '''
-def get_child_urls(browser_driver, go_url):
-    logging.info("processing url %s", go_url)
-    
-    browser_driver.get(go_url)
-    browser_driver.refresh()
-    time.sleep(2)
+def visit_url(browser_driver, go_url, xpath_code):
+    max_retry_times = 30
+    xpath_set_per_page = list()
 
-    child_urls = []
-    public_id_list = avoid_being_fuck_by_selenium_xpath(browser_driver, '//div[@class="fn-left g-right newList-item"]/a')
-    for idx in range(0, len(public_id_list), 2):
-        child_urls.append(public_id_list[idx].get_attribute("href"))
-    
-    return child_urls
+    while max_retry_times > 0:
+        try:
+            browser_driver.get(go_url)
+            browser_driver.refresh()
+            time.sleep(3)
+            xpath_set_per_page = browser_driver.find_elements_by_xpath(xpath_code)
+            break
+        except:
+            time.sleep(3)
+            max_retry_times -= 1
+
+    return xpath_set_per_page
 
 '''
-返回专利链接集合
+所有的页面信息
 '''
-def get_child_url_set(browser_driver):
+def get_xpath_set(browser_driver):
+    xpath_set = list()
+
     # 搜索关键字
-    key_word = str("广州医软智能科技有限公司")
+    key_word = "pa:(" + company_name + ")"
     key_word_urlencode_1 = parse.quote(key_word.encode("utf-8"))
     key_word_urlencode_2 = parse.quote(key_word_urlencode_1.encode("utf-8"))    # 两次转码
 
-    # 单页搜索数据量 10个
-    default_single_page_obj_num = 10
-    origin_url = "https://www.baiten.cn/results/s/" + key_word_urlencode_2 + "/.html?type=s#/"  
+    # 单页搜索数据量 100个
+    default_single_page_obj_num = 100
+    origin_url = "https://www.baiten.cn/results/l/" + key_word_urlencode_2 + "/.html?type=l#/"
+    xpath_code = '//tr[@class="Js_showTr Js_tip"]/td'
 
-    # 所有专利的单独链接
-    child_url_set = []
+    # conllect from page 1
+    go_url = origin_url + str(default_single_page_obj_num) + "/" + str(1)
+    xpath_set_per_page = visit_url(browser_driver, go_url, xpath_code)
+    xpath_set.extend(xpath_set_per_page)
 
-    # go to collect from page 1
-    child_urls = get_child_urls(browser_driver, origin_url + str(default_single_page_obj_num) + "/" + str(1))
-    child_url_set.extend(child_urls)
+    total_obj_num = int(browser_driver.find_element_by_xpath('//span[@class="Js_total"]').text) # 总数量
+    other_go_times = int(total_obj_num / default_single_page_obj_num)    # 还剩余页数 例：共有123个 第一页100个 第二页23个
 
-    # 总共含有的页数
-    all_page_num_xpath = avoid_being_fuck_by_selenium_xpath(browser_driver, '//span[@class="btui-paging-totalPage"]/em')[0]
-    all_page_num = int(all_page_num_xpath.text.strip())
-    logging.info("totally contains %d pages", all_page_num)
+    # conllect from page 2 ~ end
+    for i in range(1, other_go_times):
+        go_url = origin_url + str(default_single_page_obj_num) + "/" + str(1 + i)
+        xpath_set_per_page = visit_url(browser_driver, go_url, xpath_code)
+        xpath_set.extend(xpath_set_per_page)
 
-    # go to collect from page 2 until end
-    for page in range(2, all_page_num + 1):
-        child_urls = get_child_urls(browser_driver, origin_url + str(default_single_page_obj_num) + "/" + str(page))
-        child_url_set.extend(child_urls)
+    # 数量对不上 继续处理会出问题 干脆直接退出
+    if len(xpath_set) % total_obj_num != 0:
+        exit_all(browser_driver, -1, "wired xpath numer...")
 
-    # 总共有 xx 个专利
-    logging.info("totally contains %d objects", len(child_url_set))
-
-    return child_url_set
+    return total_obj_num, xpath_set
 
 '''
 启动函数
@@ -205,7 +169,7 @@ def get_child_url_set(browser_driver):
 '''
 def get_driver(driver_path):
     # 尝试启动firefox浏览器
-    browser_driver = webdriver.Firefox(executable_path= driver_path)
+    browser_driver = webdriver.Firefox(executable_path=driver_path)
 
     return browser_driver
 
@@ -230,8 +194,7 @@ def main():
 
     # 驱动不存在
     if "" == driver_path or not os.path.exists(driver_path):
-        logging.error("did not find firefox-Driver geckodriver")
-        return False
+        exit_all(None, -1, "did not find firefox-Driver geckodriver")
 
     # 浏览器不存在
     if "" == firefox_path or not os.path.exists(driver_path):
@@ -243,24 +206,19 @@ def main():
             logging.info("install firefox begin")
             logging.info((os.popen("sudo apt-get install firefox").read()))
             logging.info("install firefox finish")
-
-        return False
-
-    logging.info("firefox_path : " + firefox_path)
-    logging.info("driver_path : " + driver_path)
+        else:
+            exit_all(None, -1, "download firefox manully")
+    else:
+        logging.info("firefox_path : " + firefox_path)
+        
     
     # 获取浏览器驱动
     browser_driver = get_driver(driver_path)
     if browser_driver is None:
-        return False
+        exit_all(browser_driver, -1, "no browser_driver")
 
-    # 返回专利链接集合
-    child_url_set = get_child_url_set(browser_driver)
-
-    # 从这些链接里提取数据
-    for url in child_url_set:
-        assert(type(url) is str)
-        get_data_from_url(browser_driver, url)
+    total_obj_num, xpath_set = get_xpath_set(browser_driver)
+    get_data_from_xpath_set(total_obj_num, xpath_set)
 
     # 正常退出
     exit_all(browser_driver, 0, "finished..")
