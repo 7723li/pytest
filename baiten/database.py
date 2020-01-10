@@ -91,12 +91,19 @@ class baidten_db:
             members = member_list[0].split(';')
             for member in members:
                 if dict_member_times.get(member) == None:
-                    dict_member_times[member] = 0
+                    dict_member_times[member] = 1
                 else:
                     dict_member_times[member] += 1
 
+        li = str()
         for member_name in list(dict_member_times.keys()):
-            print(member_name  + " : " + str(dict_member_times[member_name]))
+            li += member_name  + " : " + str(dict_member_times[member_name]) + ", "
+            sql = 'SELECT patent_name FROM medsoft_baiten_db WHERE locate("' + member_name + '", invent_member);'
+            self.cursor.execute(sql)
+            li += str(self.cursor.fetchall()).replace('(', '').replace(')', '').replace(',,', ',')
+            li += "\n"
+        with open("member_list.txt", "wb") as file:
+            file.write(li.encode("utf-8"))
 
 def test_main():
     db = baidten_db("win32")
