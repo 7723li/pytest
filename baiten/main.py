@@ -23,20 +23,30 @@ baidten_db = database.baidten_db(sys_platform)
 # linux服务器环境下没有显示环境 需要特别配置
 display = None
 if sys_platform == "linux":
+    import_success = False
     try:
         from pyvirtualdisplay import Display
+        import_success = True
     except:
         # 安装 pyvirtualdisplay
         logging.info("install pyvirtualdisplay begin")
         logging.info(os.popen("pip3 install pyvirtualdisplay").read())
         logging.info("install pyvirtualdisplay finish")
 
+    if import_success == False:
+        from pyvirtualdisplay import Display
+
+    display = None
+    try:
+        display = Display(visible=False, size=(900, 800))
+    except:
         # 安装 xvfb
         logging.info("install xvfb begin")
-        logging.info(os.popen("apt-get install xvfb").read())
+        logging.info(os.popen("sudo apt-get install xvfb").read())
         logging.info("install xvfb finish")
 
-    display = Display(visible=False, size=(900, 800))
+    if None == display:
+        display = Display(visible=False, size=(900, 800))
     display.start()
 
 company_name = "广州医软智能科技有限公司"
@@ -177,8 +187,8 @@ def get_driver(driver_path):
         msg = str(webdriver_exception)
         if "can't kill an exited process" in msg:
             if sys_platform == "linux":     # 重装firefox
-                os.popen("apt-get remove firefox").read()
-                os.popen("apt-get install firefox").read()
+                os.popen("sudo apt-get remove firefox").read()
+                os.popen("sudo apt-get install firefox").read()
 
     return browser_driver
 
@@ -214,7 +224,7 @@ def main():
         if sys_platform == "linux":
             print("prepare to install firefox")
             logging.info("install firefox begin")
-            logging.info((os.popen("apt-get install firefox").read()))
+            logging.info((os.popen("sudo apt-get install firefox").read()))
             logging.info("install firefox finish")
         else:
             exit_all(None, -1, "download firefox manully")
