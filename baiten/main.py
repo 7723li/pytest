@@ -244,5 +244,9 @@ def main():
     exit_all(browser_driver, 0, "finished..")
 
 if __name__ == "__main__":
+    try:
+        os.remove("debug.txt")
+    except:
+        pass
     kill_process("firefox")
     main()
