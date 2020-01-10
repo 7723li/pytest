@@ -1,4 +1,4 @@
-import pymysql, os
+import pymysql, os, datetime
 
 class baidten_db:
     def __init__(self, sys_platform):
@@ -79,4 +79,25 @@ class baidten_db:
         self.cursor.execute("select * from medsoft_baiten_db;")
         all = self.cursor.fetchall()
         return all
-        
+
+    def test_get_member_rank(self):
+        date_time = datetime.datetime.now().strftime("%Y-%m-%d")
+        sql = 'SELECT invent_member FROM medsoft_baiten_db WHERE locate("' + date_time + '", check_datetime)'
+        self.cursor.execute(sql)
+        all_member_list = self.cursor.fetchall()
+
+        dict_member_times = dict()
+        for member_list in all_member_list:
+            members = member_list[0].split(';')
+            for member in members:
+                if dict_member_times.get(member) == None:
+                    dict_member_times[member] = 0
+                else:
+                    dict_member_times[member] += 1
+
+        for member_name in list(dict_member_times.keys()):
+            print(member_name  + " : " + str(dict_member_times[member_name]))
+
+def test_main():
+    db = baidten_db("win32")
+    db.test_get_member_rank()
