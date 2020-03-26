@@ -8,6 +8,8 @@ fuck_him = False
 
 app = Flask(__name__)
 root = os.path.dirname(__file__)
+os.chdir(root)
+
 system = platform.system()
 
 # 路径分隔符
