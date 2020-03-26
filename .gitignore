@@ -3,3 +3,5 @@ __pycache__/
 *.log
 debug.txt
 member_list.txt
+
+/flask_app/static/media

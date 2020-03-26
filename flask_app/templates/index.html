@@ -1,0 +1,20 @@
+<docutype charset="utf8">
+<html>
+<title>hello world</title>
+
+<head></head>
+
+<body>
+    {% for dir in dict_dir_2_url.keys() %}
+    <a href=/get_dir/{{dict_dir_2_url[dir]}}>
+        {% if dir.endswith(file_separator) %}
+            {{dir.split(file_separator)[0]}}
+        {% else %}
+            {{dir.split(file_separator)[-1]}}            
+        {% endif %}
+    </a>
+    </br>
+    {% endfor %}
+</body>
+
+</html>
