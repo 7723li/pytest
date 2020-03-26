@@ -1,7 +1,7 @@
 from flask import Flask, request, render_template, send_file, make_response, send_from_directory, url_for, redirect
 from PIL import Image
 from io import BytesIO
-import os, time, platform, string, shutil, chardet
+import os, time, platform, string, shutil, chardet, ctypes
 
 g_is_login = False
 fuck_him = False
@@ -79,14 +79,20 @@ def home():
         return "<h1>GO FUCK YOURSELF</h1>"
 
     dict_dir_2_url = dict()
+    dict_dir_2_freespace = dict()
     if system == 'Windows':
+        free_bytes = ctypes.c_ulonglong(0)
         for char in string.ascii_uppercase:
-            disk = char + ':' + file_separator_list[system] # c:\ -> c:*
+            disk = char + ':' + file_separator_list[system]
             if os.path.isdir(disk):
-                dict_dir_2_url[disk] = dir_transfer_to_url(disk)
+                ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(disk), None, None, ctypes.pointer(free_bytes))
+                dict_dir_2_freespace[disk] = str(free_bytes.value / 1024 / 1024) + ' MB left'
+                dict_dir_2_url[disk] = dir_transfer_to_url(disk)    # c:\ -> c:*
     elif system == 'Linux':
-        dict_dir_2_url['/home'] = dir_transfer_to_url('/home') # /home -> *home
-    return render_template("index.html", dict_dir_2_url=dict_dir_2_url, file_separator=file_separator_list[system])
+        st = os.statvfs('/home')
+        dict_dir_2_freespace['/home'] = str(st.f_bavail * st.f_frsize / 1024 / 1024)  + ' MB left'
+        dict_dir_2_url['/home'] = dir_transfer_to_url('/home')  # /home -> *home
+    return render_template("index.html", dict_dir_2_url=dict_dir_2_url, dict_dir_2_freespace=dict_dir_2_freespace, file_separator=file_separator_list[system])
 
 @app.route('/get_dir/<abs_src_dir>')
 def get_dir(abs_src_dir):
@@ -94,14 +100,16 @@ def get_dir(abs_src_dir):
         return "<h1>GO FUCK YOURSELF</h1>"
 
     dict_dir_2_url = dict()
+    dict_dir_2_freespace = dict()
     abs_src_dir = url_transfer_to_dir(abs_src_dir)
     if os.path.isdir(abs_src_dir):
         abs_src_dir_listdir = os.listdir(abs_src_dir)
         abs_src_dir_listdir.sort()
         for dir in abs_src_dir_listdir:
             under_abs_src_dir = os.path.join(abs_src_dir, dir)
+            dict_dir_2_freespace[under_abs_src_dir] = ""
             dict_dir_2_url[under_abs_src_dir] = dir_transfer_to_url(under_abs_src_dir)
-        return render_template("index.html", dict_dir_2_url=dict_dir_2_url, file_separator=file_separator_list[system])
+        return render_template("index.html", dict_dir_2_url=dict_dir_2_url, dict_dir_2_freespace=dict_dir_2_freespace, file_separator=file_separator_list[system])
     elif os.path.isfile(abs_src_dir):
         file_format = abs_src_dir.split('.')[-1].lower()
         if file_format in ['md', 'c', 'cpp', 'py', 'txt', 'json', 'html', 'log', 'dat', 'ini', 'inf', 'bat', 'sh']:

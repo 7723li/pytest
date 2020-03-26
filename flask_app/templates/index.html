@@ -8,11 +8,12 @@
     {% for dir in dict_dir_2_url.keys() %}
     <a href=/get_dir/{{dict_dir_2_url[dir]}}>
         {% if dir.endswith(file_separator) %}
-            {{dir.split(file_separator)[0]}}
+            {{dir.split(file_separator)[0]}} 
         {% else %}
-            {{dir.split(file_separator)[-1]}}            
+            {{dir.split(file_separator)[-1]}}
         {% endif %}
     </a>
+    &nbsp;&nbsp;&nbsp;&nbsp;{{dict_dir_2_freespace[dir]}}
     </br>
     {% endfor %}
 </body>
