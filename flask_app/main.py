@@ -1,9 +1,9 @@
 from flask import Flask, request, render_template, send_file, make_response, send_from_directory, url_for, redirect
 from PIL import Image
 from io import BytesIO
-import os, time, platform, string, shutil, chardet, ffmpeg
+import os, time, platform, string, shutil, chardet
 
-is_login = False
+g_is_login = False
 fuck_him = False
 
 app = Flask(__name__)
@@ -47,7 +47,7 @@ def move_media_file_to_staticdir(src, dst, cmd):
 
 @app.route('/')
 def index():
-    if is_login:
+    if g_is_login:
         return redirect(url_for('home'))
     
     if fuck_him:
@@ -62,8 +62,8 @@ def login():
 
     global fuck_him
     if user_id == 'zong.xi' and password == '123':
-        global is_login
-        is_login = True
+        global g_is_login
+        g_is_login = True
         fuck_him = False
     else:
         fuck_him = True
@@ -73,7 +73,7 @@ def login():
 
 @app.route('/home')
 def home():
-    if is_login == False:
+    if g_is_login == False:
         return "<h1>GO FUCK YOURSELF</h1>"
 
     dict_dir_2_url = dict()
@@ -88,7 +88,7 @@ def home():
 
 @app.route('/get_dir/<abs_src_dir>')
 def get_dir(abs_src_dir):
-    if is_login == False:
+    if g_is_login == False:
         return "<h1>GO FUCK YOURSELF</h1>"
 
     dict_dir_2_url = dict()
@@ -166,7 +166,7 @@ def get_dir(abs_src_dir):
 
 with open(os.path.join(root, '.log'), 'w') as log:
     try:
-        app.run(host='0.0.0.0', port=8088)
+        app.run(host='0.0.0.0', port=8088, debug=True)
     except Exception as e:
         log.write(str(e))
     
