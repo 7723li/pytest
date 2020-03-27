@@ -1,13 +1,22 @@
 from flask import Flask, request, render_template, send_file, make_response, send_from_directory, url_for, redirect, request
 from PIL import Image
 from io import BytesIO
-import os, time, platform, string, shutil, chardet, ctypes
+import os, time, platform, string, shutil, chardet, ctypes, logging
+
+logging.basicConfig(filename='.log', 
+                    filemode="w", 
+                    format="%(asctime)s %(name)s:%(levelname)s:%(message)s", 
+                    datefmt="%d-%m-%Y %H:%M:%S", 
+                    level=logging.DEBUG)
 
 g_dict_users_2_pwd = {
-    'lzx' : 'wzz'
+    'lzx' : '19951107lzx'
 }
 g_dict_ip_2_loginstatus = {
     
+}
+g_dict_ip_2_user = {
+
 }
 
 fuck_him = False
@@ -56,6 +65,7 @@ def move_media_file_to_staticdir(src, dst, cmd):
 @app.route('/')
 def index():
     ip = request.remote_addr
+    logging.info('/index ip : %s' % str(ip))
     if g_dict_ip_2_loginstatus.get(ip) is not None and g_dict_ip_2_loginstatus[ip] == True:
         return redirect(url_for('get_dir', abs_src_dir='home'))
     
@@ -70,30 +80,37 @@ def login():
     user = request.form.get('userid')
     password = request.form.get('password')
 
+    global g_dict_ip_2_user
+    g_dict_ip_2_user[ip] = str(user)
+
     global g_dict_ip_2_loginstatus
     global fuck_him
 
     if g_dict_ip_2_loginstatus.get(ip) is not None and g_dict_ip_2_loginstatus[ip] == True:
+        logging.info('/login ip : %s, user : %s, password : %s Already Login' % (str(ip), user, password))
         return redirect(url_for('get_dir', abs_src_dir='home'))
 
     if user is not None and g_dict_users_2_pwd.get(user) is not None and password == g_dict_users_2_pwd[user]:
+        logging.info('/login ip : %s, user : %s, password : %s Login Success' % (str(ip), user, password))
         g_dict_ip_2_loginstatus[ip] = True
         fuck_him = False
+        return redirect(url_for('get_dir', abs_src_dir='home'))
     else:
+        logging.info('/login ip : %s, user : %s, password : %s Login Failed' % (str(ip), user, password))
         fuck_him = True
         return redirect(url_for('index'))
-    
-    return redirect(url_for('get_dir', abs_src_dir='home'))
 
 @app.route('/get_dir/<abs_src_dir>')
 def get_dir(abs_src_dir):
     ip = request.remote_addr
-    if g_dict_ip_2_loginstatus.get(ip) is None or g_dict_ip_2_loginstatus[ip] == False:
-        return "<h1>GO FUCK YOURSELF</h1>"
-
     dict_dir_2_url = dict()
     dict_dir_2_freespace = dict()
     abs_src_dir = url_transfer_to_dir(abs_src_dir)
+    
+    logging.info('/get_dir ip : %s, user : %s, get_dir : %s' % (str(ip), str(g_dict_ip_2_user.get(ip)), abs_src_dir))
+    if g_dict_ip_2_loginstatus.get(ip) is None or g_dict_ip_2_loginstatus[ip] == False:
+        return "<h1>GO FUCK YOURSELF</h1>"
+
     if abs_src_dir == 'home':
         if system == 'Windows':
             free_bytes = ctypes.c_ulonglong(0)
@@ -184,5 +201,5 @@ with open(os.path.join(root, '.log'), 'w') as log:
     try:
         app.run(host='0.0.0.0', port=8088, debug=True)
     except Exception as e:
-        log.write(str(e))
+        logging.info(str(e))
     
