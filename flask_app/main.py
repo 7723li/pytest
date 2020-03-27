@@ -1,9 +1,15 @@
-from flask import Flask, request, render_template, send_file, make_response, send_from_directory, url_for, redirect
+from flask import Flask, request, render_template, send_file, make_response, send_from_directory, url_for, redirect, request
 from PIL import Image
 from io import BytesIO
 import os, time, platform, string, shutil, chardet, ctypes
 
-g_is_login = False
+g_dict_users_2_pwd = {
+    'lzx' : 'wzz'
+}
+g_dict_ip_2_loginstatus = {
+    
+}
+
 fuck_him = False
 
 app = Flask(__name__)
@@ -49,8 +55,9 @@ def move_media_file_to_staticdir(src, dst, cmd):
 
 @app.route('/')
 def index():
-    if g_is_login:
-        return redirect(url_for('home'))
+    ip = request.remote_addr
+    if g_dict_ip_2_loginstatus.get(ip) is not None and g_dict_ip_2_loginstatus[ip] == True:
+        return redirect(url_for('get_dir', abs_src_dir='home'))
     
     if fuck_him:
         return render_template("login.html", fuck_him="GO FUCK YOURSELF")
@@ -59,50 +66,49 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    user_id = request.form.get('userid')
+    ip = request.remote_addr
+    user = request.form.get('userid')
     password = request.form.get('password')
 
+    global g_dict_ip_2_loginstatus
     global fuck_him
-    if user_id == 'zong.xi' and password == '123':
-        global g_is_login
-        g_is_login = True
+
+    if g_dict_ip_2_loginstatus.get(ip) is not None and g_dict_ip_2_loginstatus[ip] == True:
+        return redirect(url_for('get_dir', abs_src_dir='home'))
+
+    if user is not None and g_dict_users_2_pwd.get(user) is not None and password == g_dict_users_2_pwd[user]:
+        g_dict_ip_2_loginstatus[ip] = True
         fuck_him = False
     else:
         fuck_him = True
         return redirect(url_for('index'))
     
-    return redirect(url_for('home'))
-
-@app.route('/home')
-def home():
-    if g_is_login == False:
-        return "<h1>GO FUCK YOURSELF</h1>"
-
-    dict_dir_2_url = dict()
-    dict_dir_2_freespace = dict()
-    if system == 'Windows':
-        free_bytes = ctypes.c_ulonglong(0)
-        for char in string.ascii_uppercase:
-            disk = char + ':' + file_separator_list[system]
-            if os.path.isdir(disk):
-                ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(disk), None, None, ctypes.pointer(free_bytes))
-                dict_dir_2_freespace[disk] = str(free_bytes.value / 1024 / 1024) + ' MB left'
-                dict_dir_2_url[disk] = dir_transfer_to_url(disk)    # c:\ -> c:*
-    elif system == 'Linux':
-        st = os.statvfs('/home')
-        dict_dir_2_freespace['/home'] = str(st.f_bavail * st.f_frsize / 1024 / 1024)  + ' MB left'
-        dict_dir_2_url['/home'] = dir_transfer_to_url('/home')  # /home -> *home
-    return render_template("index.html", dict_dir_2_url=dict_dir_2_url, dict_dir_2_freespace=dict_dir_2_freespace, file_separator=file_separator_list[system])
+    return redirect(url_for('get_dir', abs_src_dir='home'))
 
 @app.route('/get_dir/<abs_src_dir>')
 def get_dir(abs_src_dir):
-    if g_is_login == False:
+    ip = request.remote_addr
+    if g_dict_ip_2_loginstatus.get(ip) is None or g_dict_ip_2_loginstatus[ip] == False:
         return "<h1>GO FUCK YOURSELF</h1>"
 
     dict_dir_2_url = dict()
     dict_dir_2_freespace = dict()
     abs_src_dir = url_transfer_to_dir(abs_src_dir)
-    if os.path.isdir(abs_src_dir):
+    if abs_src_dir == 'home':
+        if system == 'Windows':
+            free_bytes = ctypes.c_ulonglong(0)
+            for char in string.ascii_uppercase:
+                disk = char + ':' + file_separator_list[system]
+                if os.path.isdir(disk):
+                    ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(disk), None, None, ctypes.pointer(free_bytes))
+                    dict_dir_2_freespace[disk] = str(free_bytes.value / 1024 / 1024 / 1024) + ' GB left'
+                    dict_dir_2_url[disk] = dir_transfer_to_url(disk)    # c:\ -> c:*
+        elif system == 'Linux':
+            st = os.statvfs('/home')
+            dict_dir_2_freespace['/home'] = str(st.f_bavail * st.f_frsize / 1024 / 1024 / 1024)  + ' GB left'
+            dict_dir_2_url['/home'] = dir_transfer_to_url('/home')  # /home -> *home
+        return render_template("index.html", dict_dir_2_url=dict_dir_2_url, dict_dir_2_freespace=dict_dir_2_freespace, file_separator=file_separator_list[system])
+    elif os.path.isdir(abs_src_dir):
         abs_src_dir_listdir = os.listdir(abs_src_dir)
         abs_src_dir_listdir.sort()
         for dir in abs_src_dir_listdir:
